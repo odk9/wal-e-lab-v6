@@ -2,6 +2,11 @@
 setup_collections.py — Crée les collections Qdrant pour la KB Wal-e V6.
 À lancer une seule fois avant la première ingestion.
 
+Modèle d'embedding : nomic-ai/nomic-embed-text-v1.5-Q
+  - 768 dimensions
+  - 8192 tokens max (pas de troncature sur les blocs de code)
+  - ONNX quantizé — 130MB, pas de PyTorch
+
 Usage:
     source .venv/bin/activate
     python setup_collections.py
@@ -16,6 +21,7 @@ from qdrant_client.models import (
 )
 
 KB_PATH = "./kb_qdrant"
+VECTOR_SIZE = 768  # nomic-embed-text-v1.5-Q
 
 
 def create_patterns_collection(client: QdrantClient) -> None:
@@ -29,7 +35,7 @@ def create_patterns_collection(client: QdrantClient) -> None:
     client.create_collection(
         collection_name="patterns",
         vectors_config=VectorParams(
-            size=384,                  # all-MiniLM-L6-v2
+            size=VECTOR_SIZE,          # nomic-embed-text-v1.5-Q
             distance=Distance.COSINE,
         ),
         hnsw_config=HnswConfigDiff(
@@ -58,7 +64,7 @@ def create_architectures_collection(client: QdrantClient) -> None:
     client.create_collection(
         collection_name="architectures",
         vectors_config=VectorParams(
-            size=384,
+            size=VECTOR_SIZE,          # nomic-embed-text-v1.5-Q
             distance=Distance.COSINE,
         ),
     )
@@ -96,7 +102,7 @@ def main() -> None:
         info = client.get_collection(name)
         count = client.count(name).count
         size = info.config.params.vectors.size
-        print(f"  {name:15} | {count} points | vecteurs {size} dims")
+        print(f"  {name:15} | {count} points | vecteurs {size} dims | 8192 tokens max")
 
     print("\n✅ KB Qdrant prête.")
 
