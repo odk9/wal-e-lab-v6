@@ -1,0 +1,63 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Env files — secrets
+.env
+!.env.example
+
+# KB data — Qdrant (local, trop volumineux pour git)
+kb/kb_qdrant/
+ingestion/chroma_db/
+
+# Ruff cache
+.ruff_cache/
+
+# Pyright
+pyrightconfig.json
+
+# Test artifacts
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# Generated projects (output du pipeline)
+generated/
+output/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/
+
+# Node (pour les projets TypeScript générés)
+node_modules/
+
+# Go build artifacts
+*.exe
+*.test
+
+# Rust build artifacts
+target/
+Cargo.lock
