@@ -123,6 +123,11 @@ Champ obligatoire sur chaque point inséré :
 
 Champs indexés (filtrables) : `feature_type`, `framework`, `language`, `file_role`
 
+**RÈGLE CRITIQUE — Toujours filtrer par `language` lors des queries KB.**
+Sans filtre, une query JS peut retourner un pattern Python (similarité sémantique
+entre "create" et "register"). Utiliser `query_kb()` de `kb_utils.py` qui impose
+le filtre. Ne JAMAIS faire un `query_points()` sans filtre `language`.
+
 ---
 
 ## Matrice de test KB (18 repos)

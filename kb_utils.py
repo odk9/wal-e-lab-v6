@@ -302,6 +302,70 @@ def make_uuid() -> str:
     return str(uuid.uuid4())
 
 
+def query_kb(
+    client: Any,
+    collection: str,
+    query_vector: list[float],
+    language: str | None = None,
+    framework: str | None = None,
+    feature_type: str | None = None,
+    limit: int = 5,
+) -> list[Any]:
+    """
+    Query la KB avec filtrage obligatoire par langage.
+
+    RÈGLE V6 : toujours filtrer par language pour éviter la contamination
+    cross-langage (un pattern Python qui remonte sur une query JS).
+
+    Utilise client.query_points() (qdrant-client 1.17+).
+
+    Args:
+        client: QdrantClient instance
+        collection: nom de la collection ("patterns")
+        query_vector: vecteur de la query (via embed_query())
+        language: filtre obligatoire — "python", "javascript", "typescript", "go", "rust"
+        framework: filtre optionnel — "fastapi", "express", "gin", "axum"
+        feature_type: filtre optionnel — "crud", "auth", "schema", "model", etc.
+        limit: nombre de résultats max
+
+    Returns:
+        Liste de ScoredPoint (accéder via .payload, .score)
+    """
+    # Import local pour éviter la dépendance au top-level
+    from qdrant_client.models import (
+        FieldCondition,
+        Filter,
+        MatchValue,
+    )
+
+    must_conditions: list[FieldCondition] = []
+
+    if language:
+        must_conditions.append(
+            FieldCondition(key="language", match=MatchValue(value=language))
+        )
+    if framework:
+        must_conditions.append(
+            FieldCondition(key="framework", match=MatchValue(value=framework))
+        )
+    if feature_type:
+        must_conditions.append(
+            FieldCondition(key="feature_type", match=MatchValue(value=feature_type))
+        )
+
+    query_filter = Filter(must=must_conditions) if must_conditions else None
+
+    results = client.query_points(
+        collection_name=collection,
+        query=query_vector,
+        query_filter=query_filter,
+        limit=limit,
+        with_payload=True,
+    )
+
+    return results.points
+
+
 def audit_report(
     repo_name: str,
     dry_run: bool,
