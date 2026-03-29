@@ -42,10 +42,39 @@ TECHNICAL_TERMS: set[str] = {
     "feature_type", "file_type", "content_type", "type_hint",
     # "model" → model_config, model_dump, model_validate
     "model_config", "model_dump", "model_validate", "model_fields",
-    # "event" → event_handler, event_loop
-    "event_handler", "event_loop",
+    # "event" → event_handler, event_loop, addEventListener, EventEmitter
+    "event_handler", "event_loop", "addeventlistener", "eventemitter",
+    "event_emitter",
     # "note" → notebook, annotation
     "notebook", "annotation",
+    # --- JavaScript / Express ---
+    # "user" → req.user (Express/Passport), userAgent
+    "req.user", "useragent", "user_agent",
+    # "post" → app.post, router.post (Express HTTP methods)
+    "app.post(", "router.post(", "app.post(",
+    # "item" → menuItem, listItem (UI components)
+    "menuitem", "listitem",
+    # "model" → mongoose.model, Model.find (Mongoose)
+    "mongoose.model", ".model(",
+    # "message" → error message, flash message (Express)
+    "flash(", "req.flash",
+    # "event" → on('event', ...) (Node EventEmitter pattern)
+    ".on(", ".emit(", ".once(",
+    # "order" → z-order, tab-order (CSS/HTML)
+    "z-order", "tab-order", "taborder",
+    # --- TypeScript ---
+    # "type" → TypeScript type keyword
+    "type ", "interface ",
+    # --- Go ---
+    # "model" → gorm.Model
+    "gorm.model",
+    # "order" → Order("id desc") (GORM)
+    '.order(',
+    # --- Rust ---
+    # "item" → syn::Item (Rust AST)
+    "syn::item",
+    # "model" → derive(Model)
+    "derive(",
 }
 
 # Noms d'entités métier interdits dans le code normalisé
@@ -58,23 +87,41 @@ FORBIDDEN_ENTITIES: list[str] = [
 ]
 
 
-def check_charte_violations(code: str, function_name: str = "?") -> list[str]:
+def check_charte_violations(
+    code: str,
+    function_name: str = "?",
+    language: str = "python",
+) -> list[str]:
     """
     Vérifie qu'un pattern normalisé respecte les règles critiques de la Charte Wal-e.
     Retourne une liste de violations (vide = OK).
 
-    Règles vérifiées :
-      - U-5  : pas de noms d'entités métier (Xxx/xxx/xxxs obligatoires)
-      - F-1  : pas de declarative_base() (SQLAlchemy 1.x interdit)
-      - F-2  : pas de datetime.utcnow() (datetime.now(UTC) obligatoire)
-      - F-3  : pas de class Config (ConfigDict obligatoire)
+    Applique :
+      - Règles U-* (universelles) : tous les langages
+      - Règles F-* (Python/FastAPI) : uniquement si language="python"
+      - Règles J-* (JavaScript/Express) : uniquement si language="javascript"
+      - Règles T-* (TypeScript) : uniquement si language="typescript"
+      - Règles G-* (Go/Gin) : uniquement si language="go"
+      - Règles R-* (Rust/Axum) : uniquement si language="rust"
     """
     violations: list[str] = []
 
-    # --- Lignes hors imports (les imports contiennent souvent des mots interdits) ---
+    # ------------------------------------------------------------------
+    # Filtrage des lignes d'import (varie selon le langage)
+    # ------------------------------------------------------------------
+    import_prefixes = {
+        "python": ("from ", "import "),
+        "javascript": ("import ", "require(", "const ", "var ", "let "),
+        "typescript": ("import ", "require(", "const ", "var ", "let "),
+        "go": ("import "),
+        "rust": ("use ", "extern "),
+        "cpp": ("#include"),
+    }
+    prefixes = import_prefixes.get(language, ("from ", "import "))
+
     non_import_lines = [
         line for line in code.split("\n")
-        if not line.strip().startswith(("from ", "import "))
+        if not line.strip().startswith(prefixes)
     ]
     non_import_code = "\n".join(non_import_lines).lower()
 
@@ -83,33 +130,128 @@ def check_charte_violations(code: str, function_name: str = "?") -> list[str]:
     for term in TECHNICAL_TERMS:
         sanitized = sanitized.replace(term.lower(), "___")
 
-    # U-5 — Entités métier
+    # ------------------------------------------------------------------
+    # U-5 — Entités métier (UNIVERSEL — tous les langages)
+    # ------------------------------------------------------------------
     for entity in FORBIDDEN_ENTITIES:
         if re.search(rf"\b{entity}\b", sanitized):
             violations.append(
                 f"[U-5] Entité métier '{entity}' dans pattern '{function_name}'"
             )
 
-    # F-1 — SQLAlchemy 1.x
-    if "declarative_base()" in code:
-        violations.append(
-            f"[F-1] declarative_base() détecté dans '{function_name}' "
-            f"— utiliser DeclarativeBase"
-        )
+    # ------------------------------------------------------------------
+    # F-* — Règles Python / FastAPI
+    # ------------------------------------------------------------------
+    if language == "python":
+        # F-1 — SQLAlchemy 1.x
+        if "declarative_base()" in code:
+            violations.append(
+                f"[F-1] declarative_base() détecté dans '{function_name}' "
+                f"— utiliser DeclarativeBase"
+            )
 
-    # F-2 — datetime.utcnow
-    if "datetime.utcnow" in code:
-        violations.append(
-            f"[F-2] datetime.utcnow() détecté dans '{function_name}' "
-            f"— utiliser datetime.now(UTC)"
-        )
+        # F-2 — datetime.utcnow
+        if "datetime.utcnow" in code:
+            violations.append(
+                f"[F-2] datetime.utcnow() détecté dans '{function_name}' "
+                f"— utiliser datetime.now(UTC)"
+            )
 
-    # F-3 — Pydantic V1
-    if re.search(r"class\s+Config\s*:", code):
-        violations.append(
-            f"[F-3] class Config détecté dans '{function_name}' "
-            f"— utiliser model_config = ConfigDict(...)"
-        )
+        # F-3 — Pydantic V1
+        if re.search(r"class\s+Config\s*:", code):
+            violations.append(
+                f"[F-3] class Config détecté dans '{function_name}' "
+                f"— utiliser model_config = ConfigDict(...)"
+            )
+
+    # ------------------------------------------------------------------
+    # J-* — Règles JavaScript / Express
+    # ------------------------------------------------------------------
+    if language == "javascript":
+        # J-1 — var interdit → const ou let
+        if re.search(r"\bvar\s+", code):
+            violations.append(
+                f"[J-1] 'var' détecté dans '{function_name}' "
+                f"— utiliser const ou let"
+            )
+
+        # J-2 — callback hell → async/await
+        # Détecte les callbacks imbriqués (3+ niveaux de function())
+        if code.count("function(") >= 3 or code.count("function (") >= 3:
+            violations.append(
+                f"[J-2] Callbacks imbriqués dans '{function_name}' "
+                f"— utiliser async/await"
+            )
+
+        # J-3 — console.log interdit (équivalent de U-7 pour JS)
+        non_import_code_raw = "\n".join(non_import_lines)
+        if "console.log(" in non_import_code_raw:
+            violations.append(
+                f"[J-3] console.log() détecté dans '{function_name}' "
+                f"— supprimer ou utiliser un logger"
+            )
+
+    # ------------------------------------------------------------------
+    # T-* — Règles TypeScript
+    # ------------------------------------------------------------------
+    if language == "typescript":
+        # T-1 — any interdit
+        if re.search(r":\s*any\b", code):
+            violations.append(
+                f"[T-1] Type 'any' détecté dans '{function_name}' "
+                f"— utiliser un type explicite"
+            )
+
+        # T-2 — var interdit (même règle que JS)
+        if re.search(r"\bvar\s+", code):
+            violations.append(
+                f"[T-2] 'var' détecté dans '{function_name}' "
+                f"— utiliser const ou let"
+            )
+
+        # T-3 — console.log interdit
+        non_import_code_raw = "\n".join(non_import_lines)
+        if "console.log(" in non_import_code_raw:
+            violations.append(
+                f"[T-3] console.log() détecté dans '{function_name}' "
+                f"— supprimer ou utiliser un logger"
+            )
+
+    # ------------------------------------------------------------------
+    # G-* — Règles Go / Gin
+    # ------------------------------------------------------------------
+    if language == "go":
+        # G-1 — panic interdit (sauf init)
+        if "panic(" in code and "func init()" not in code:
+            violations.append(
+                f"[G-1] panic() détecté dans '{function_name}' "
+                f"— retourner une erreur"
+            )
+
+        # G-2 — fmt.Println interdit (équivalent U-7)
+        if "fmt.Println(" in code or "fmt.Printf(" in code:
+            violations.append(
+                f"[G-2] fmt.Print détecté dans '{function_name}' "
+                f"— utiliser log.Logger"
+            )
+
+    # ------------------------------------------------------------------
+    # R-* — Règles Rust / Axum
+    # ------------------------------------------------------------------
+    if language == "rust":
+        # R-1 — unwrap interdit (sauf tests)
+        if ".unwrap()" in code and "#[test]" not in code:
+            violations.append(
+                f"[R-1] .unwrap() détecté dans '{function_name}' "
+                f"— utiliser ? ou match"
+            )
+
+        # R-2 — println! interdit
+        if "println!(" in code:
+            violations.append(
+                f"[R-2] println!() détecté dans '{function_name}' "
+                f"— utiliser tracing ou log"
+            )
 
     return violations
 
