@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# Qdrant KB (local only)
+kb_qdrant/
+
+# Env files
+.env
+*.env
+
+# Tableau de bord (local only)
+TABLEAU_DE_BORD.md
+TABLEAU_DE_BORD.pdf
+
+# macOS
+.DS_Store
+.DS_Store?
+._*
+
+# VS Code
+.vscode/settings.json
+
+# Logs
+*.log
