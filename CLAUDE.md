@@ -59,6 +59,7 @@ GitHub repos → kb_scanner → kb_extracteur (AST + LLM) → kb_normaliseur (Ch
 | Normalisation vecteurs | L2 manuelle dans `embedder.py` |
 | API Qdrant search | `client.query_points()` — PAS `client.search()` (retiré en 1.17+) |
 | Cleanup tests | `FilterSelector` par champ `_tag` |
+| Python venv | `.venv/` — Python 3.13 (reconstruit le 29 mars 2026, python3.10 absent de la machine) |
 
 ---
 
@@ -278,6 +279,8 @@ async def get_db() -> AsyncSession:
 | Score cosine > 1.0 | vecteurs fastembed non normalisés | `embedder.py` normalise en L2 — toujours utiliser embed_document/embed_query |
 | Points orphelins après crash | cleanup par ID list interrompu | Toujours cleanup par FilterSelector + champ `_tag` |
 | `index.lock` sur git | .git dans dossier monté | Git initialisé directement dans le dossier Mac — workflow normal |
+| Faux positif normalisation — mot `order` | Variable technique `sort_order` contient "order" | Renommer la variable (`direction`) + liste `TECHNICAL_TERMS` dans le script d'ingestion |
+| `.venv/bin/python3` introuvable | python3.10 désinstallé de la machine | Recréer le venv : `python3 -m venv .venv --clear && .venv/bin/pip install qdrant-client fastembed numpy` |
 
 ---
 
