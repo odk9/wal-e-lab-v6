@@ -27,17 +27,23 @@ TECHNICAL_TERMS: set[str] = {
     "item_id", "item_ids", "items_per_page", "lineitem", "lineitems",
     ".items()",   # dict method
     # "post" → HTTP method .post(, @router.post, postfix, repost
-    ".post(",     # HTTP POST method (TestClient, APIRouter)
-    "@router.post", "client.post",
+    ".post(",     # HTTP POST method (TestClient, APIRouter, supertest)
+    "@router.post", "client.post", "agent.post",
     "postfix", "repost", "reposts",
     # "tag" / "tags" → _tag (champ KB interne), FastAPI tags= parameter
     "_tag",
     'tags=',      # FastAPI router tags parameter
     'tags=[',
-    # "message" → emails.Message (email library class), XxxMessage, response.json()
+    # "message" → emails.Message, XxxMessage, Express error response, flash message
     "emails.message",   # email lib class (lowercased)
     "xxxmessage",       # normalized schema name (lowercased)
     "detail=",          # generic response pattern
+    "{ message:",       # Express/Passport error response object
+    "message:",         # JS object key in error responses
+    "failuremessage",   # Passport option
+    "errormessage",     # generic error property
+    ".message",         # JS Error.message property / Mongoose validation
+    "err.message",      # JS error.message standard property
     # "type" → feature_type, file_type, content_type
     "feature_type", "file_type", "content_type", "type_hint",
     # "model" → model_config, model_dump, model_validate
@@ -48,8 +54,10 @@ TECHNICAL_TERMS: set[str] = {
     # "note" → notebook, annotation
     "notebook", "annotation",
     # --- JavaScript / Express ---
-    # "user" → req.user (Express/Passport), userAgent
+    # "user" → req.user (Express/Passport), userAgent, OAuth scopes
     "req.user", "useragent", "user_agent",
+    "user:email",       # GitHub OAuth scope
+    "'user:email'",     # GitHub OAuth scope (quoted)
     # "post" → app.post, router.post (Express HTTP methods)
     "app.post(", "router.post(", "app.post(",
     # "item" → menuItem, listItem (UI components)
