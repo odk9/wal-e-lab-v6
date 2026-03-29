@@ -18,19 +18,34 @@ TECHNICAL_TERMS: set[str] = {
     # "order" → sort_order, order_by, ordering, ordered, reorder, border
     "sort_order", "sort_orders", "order_by", "order_by_", "ordering",
     "ordered", "reorder", "reorders", "border", "borders",
-    # "user" → username, userid, user_id, superuser, current_user
+    # "user" → username, userid, user_id, superuser, current_user, smtp auth
     "username", "usernames", "user_id", "user_ids", "userid",
     "superuser", "superusers", "current_user",
-    # "item" → item_id, items_per_page, lineitem
+    '["user"]', '"user"',  # SMTP protocol key
+    "smtp_user",
+    # "item" → item_id, items_per_page, lineitem, dict .items()
     "item_id", "item_ids", "items_per_page", "lineitem", "lineitems",
-    # "post" → postfix, repost
+    ".items()",   # dict method
+    # "post" → HTTP method .post(, @router.post, postfix, repost
+    ".post(",     # HTTP POST method (TestClient, APIRouter)
+    "@router.post", "client.post",
     "postfix", "repost", "reposts",
-    # "tag" → _tag (champ KB interne)
+    # "tag" / "tags" → _tag (champ KB interne), FastAPI tags= parameter
     "_tag",
+    'tags=',      # FastAPI router tags parameter
+    'tags=[',
+    # "message" → emails.Message (email library class), XxxMessage, response.json()
+    "emails.message",   # email lib class (lowercased)
+    "xxxmessage",       # normalized schema name (lowercased)
+    "detail=",          # generic response pattern
     # "type" → feature_type, file_type, content_type
     "feature_type", "file_type", "content_type", "type_hint",
     # "model" → model_config, model_dump, model_validate
     "model_config", "model_dump", "model_validate", "model_fields",
+    # "event" → event_handler, event_loop
+    "event_handler", "event_loop",
+    # "note" → notebook, annotation
+    "notebook", "annotation",
 }
 
 # Noms d'entités métier interdits dans le code normalisé
