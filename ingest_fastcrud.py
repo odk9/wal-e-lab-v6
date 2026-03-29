@@ -116,12 +116,12 @@ class Base(DeclarativeBase):
     pass
 
 
-class XxxCategory(Base):
-    __tablename__ = "xxx_categories"
+class XxxGroup(Base):
+    __tablename__ = "xxx_groups"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String, unique=True, nullable=False)
-    xxxs: Mapped[list["Xxx"]] = relationship(back_populates="category")
+    xxxs: Mapped[list["Xxx"]] = relationship(back_populates="xxx_group")
 
 
 class Xxx(Base):
@@ -129,10 +129,10 @@ class Xxx(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
-    category_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("xxx_categories.id"), nullable=True
+    xxx_group_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("xxx_groups.id"), nullable=True
     )
-    category: Mapped["XxxCategory | None"] = relationship(back_populates="xxxs")
+    xxx_group: Mapped["XxxGroup | None"] = relationship(back_populates="xxxs")
 """,
         "function": "sqlalchemy_model_relationship",
         "feature_type": "model",
