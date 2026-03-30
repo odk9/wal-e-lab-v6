@@ -33,3 +33,23 @@ Aucune violation — PASS au premier essai.
 - Cause : (1) Multi-line imports avec `Post,` sur sa propre ligne — non exclue par le filtre d'imports. (2) `EventsGateway` class name et `'events'` string literal contiennent le mot interdit.
 - Action : (1) Collapsé les imports multi-lignes en single-line pour auth controller et file upload. (2) Renommé `EventsGateway` → `WsGateway`, `'events'` → `'data'` dans le WebSocket pattern.
 - Résultat : PASS
+
+## [Go A] eddycjy/go-gin-example (Go A)
+
+Aucune violation — PASS au premier essai (25 patterns).
+
+## [Go B] ThreeDotsLabs/wild-workouts-go-ddd-example (Go B)
+
+### Fix 1 — `"POST"` in CORS AllowedMethods triggers U-5 forbidden entity "post"
+- Violation : `[U-5] Entité métier 'post' dans pattern 'chi_http_server_middleware_chain'`
+- Cause : `AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}` — after lowercasing, `"post"` matches `\bpost\b`. The existing TECHNICAL_TERMS only covered `.post(` (method call) and `@post(` (decorator), not `"post"` as an HTTP method string literal.
+- Action : Ajouté `'"post"'` et `'"post",'` dans TECHNICAL_TERMS de kb_utils.py pour exempter les chaînes HTTP method.
+- Résultat : PASS (purge + re-run)
+
+## [Go C] bxcodec/go-clean-arch (Go C)
+
+### Fix 1 — `ORDER BY` in SQL query triggers U-5 forbidden entity "order"
+- Violation : `[U-5] Entité métier 'order' dans pattern 'mysql_repository_fetch_get'`
+- Cause : SQL query `ORDER BY created_at` — after lowercasing, `order` in `order by` matches `\border\b`. The existing TECHNICAL_TERMS only covered `.order(` (GORM method), not SQL `ORDER BY`.
+- Action : Ajouté `"order by"` dans TECHNICAL_TERMS de kb_utils.py pour exempter la clause SQL ORDER BY.
+- Résultat : PASS (purge + re-run)

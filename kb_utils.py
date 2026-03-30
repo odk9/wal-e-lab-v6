@@ -31,6 +31,8 @@ TECHNICAL_TERMS: set[str] = {
     "method: 'post'",  # fetch options (lowercased)
     "@router.post", "client.post", "agent.post",
     "postfix", "repost", "reposts",
+    '"post"',     # HTTP method string in CORS/method lists
+    '"post",',    # HTTP method in array
     # "tag" / "tags" → _tag (champ KB interne), FastAPI tags= parameter
     "_tag",
     'tags=',      # FastAPI router tags parameter
@@ -93,8 +95,13 @@ TECHNICAL_TERMS: set[str] = {
     # --- Go ---
     # "model" → gorm.Model
     "gorm.model",
-    # "order" → Order("id desc") (GORM)
+    # "order" → Order("id desc") (GORM), ORDER BY (SQL)
     '.order(',
+    "order by",
+    # "todo" → context.TODO() (Go stdlib)
+    "context.todo(",
+    # "item" → error message "your requested Item" (Go clean-arch)
+    "requested item",
     # --- Rust ---
     # "item" → syn::Item (Rust AST)
     "syn::item",
