@@ -57,9 +57,10 @@ PATTERNS: list[dict] = [
     # MODELS
     # ═══════════════════════════════════════════════════════════════════════════
 
-    # ── 1a. Mongoose schema — entity definition + plugins + validation ───────
+    # ── 1. Mongoose schema — main entity with bcrypt + plugins ───────────────
     {
         "normalized_code": """\
+const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
 const validator = require('validator');
 
@@ -70,20 +71,13 @@ const xxxSchema = mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
     email: {
-      type: String,
-      required: true,
-      unique: true,
-      trim: true,
-      lowercase: true,
+      type: String, required: true, unique: true, trim: true, lowercase: true,
       validate(value) {
         if (!validator.isEmail(value)) throw new Error('Invalid email');
       },
     },
     password: {
-      type: String,
-      required: true,
-      trim: true,
-      minlength: 8,
+      type: String, required: true, trim: true, minlength: 8,
       validate(value) {
         if (!value.match(/\\d/) || !value.match(/[a-zA-Z]/))
           throw new Error(
@@ -101,33 +95,10 @@ const xxxSchema = mongoose.Schema(
 xxxSchema.plugin(toJSON);
 xxxSchema.plugin(paginate);
 
-const Xxx = mongoose.model('Xxx', xxxSchema);
-module.exports = Xxx;
-""",
-        "function": "mongoose_schema_validation_plugins_rbac",
-        "feature_type": "model",
-        "file_role": "model",
-        "file_path": "src/models/xxx.model.js",
-    },
-
-    # ── 1b. Mongoose static — isEmailTaken ──────────────────────────────────
-    {
-        "normalized_code": """\
 xxxSchema.statics.isEmailTaken = async function (email, excludeXxxId) {
   const xxx = await this.findOne({ email, _id: { $ne: excludeXxxId } });
   return !!xxx;
 };
-""",
-        "function": "mongoose_static_is_email_taken",
-        "feature_type": "model",
-        "file_role": "model",
-        "file_path": "src/models/xxx.model.js",
-    },
-
-    # ── 1c. Mongoose method + pre-save bcrypt ────────────────────────────────
-    {
-        "normalized_code": """\
-const bcrypt = require('bcryptjs');
 
 xxxSchema.methods.isPasswordMatch = async function (password) {
   return bcrypt.compare(password, this.password);
@@ -139,8 +110,11 @@ xxxSchema.pre('save', async function (next) {
   }
   next();
 });
+
+const Xxx = mongoose.model('Xxx', xxxSchema);
+module.exports = Xxx;
 """,
-        "function": "mongoose_method_password_match_presave_bcrypt",
+        "function": "mongoose_schema_bcrypt_plugins_rbac",
         "feature_type": "model",
         "file_role": "model",
         "file_path": "src/models/xxx.model.js",

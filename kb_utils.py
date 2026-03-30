@@ -191,8 +191,30 @@ def check_charte_violations(
             )
 
         # J-2 — callback hell → async/await
-        # Détecte les callbacks imbriqués (3+ niveaux de function())
-        if code.count("function(") >= 3 or code.count("function (") >= 3:
+        # Détecte les callbacks imbriqués (3+ function() NON exemptées).
+        # On exempte les `function` légitimes qui ont besoin du binding `this` :
+        #   - assignation de propriété/méthode : `= function (`, `= async function (`
+        #   - hooks Mongoose : `.pre(`, `.post(` suivi de function
+        #   - strategy Passport : `new XxxStrategy(..., function (`
+        #   - module.exports = function (
+        # Seules les function() restantes (callbacks imbriqués) sont comptées.
+        _THIS_BINDING_PATTERNS = (
+            "= function",         # property/method assignment
+            "= async function",   # async property/method assignment
+            ".pre(",              # Mongoose pre hook
+            ".post(",             # Mongoose post hook (hook, pas HTTP)
+            "exports = function", # module.exports = function(app)
+        )
+        non_exempt_fn_count = 0
+        for line in code.split("\n"):
+            stripped = line.strip()
+            has_function = "function(" in stripped or "function (" in stripped
+            if not has_function:
+                continue
+            is_exempt = any(pat in stripped for pat in _THIS_BINDING_PATTERNS)
+            if not is_exempt:
+                non_exempt_fn_count += 1
+        if non_exempt_fn_count >= 3:
             violations.append(
                 f"[J-2] Callbacks imbriqués dans '{function_name}' "
                 f"— utiliser async/await"
