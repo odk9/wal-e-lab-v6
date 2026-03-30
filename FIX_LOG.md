@@ -53,3 +53,82 @@ Aucune violation — PASS au premier essai (25 patterns).
 - Cause : SQL query `ORDER BY created_at` — after lowercasing, `order` in `order by` matches `\border\b`. The existing TECHNICAL_TERMS only covered `.order(` (GORM method), not SQL `ORDER BY`.
 - Action : Ajouté `"order by"` dans TECHNICAL_TERMS de kb_utils.py pour exempter la clause SQL ORDER BY.
 - Résultat : PASS (purge + re-run)
+
+## [Rust A] tokio-rs/axum (Rust A)
+
+### Fix 1 — `post(handler)` and `.post(handler)` in axum routing triggers U-5
+- Violation : 7 patterns with `[U-5] Entité métier 'post'`
+- Cause : Axum uses `post(handler)` as standalone function and `.post(handler)` as method chaining. Also `Method::POST` constant and `method="post"` HTML attribute. Multi-line `use axum::{routing::{get, post, put}};` has `post,` on continuation lines not filtered as imports.
+- Action : Ajouté dans TECHNICAL_TERMS de kb_utils.py : `"routing::post"`, `".post("`, `"post("`, `"post,"`, `"post}"`, `"method::post"`, `'method="post"'`.
+- Résultat : PASS (purge + re-run)
+
+## [Rust B] maxcountryman/axum-login (Rust B)
+
+### Fix 1 — `type User`, `Self::User`, `auth_session.user`, `task::spawn_blocking` trigger U-5
+- Violation : 5 patterns — `user` (trait associated type, field access) and `task` (tokio::task module)
+- Cause : Rust trait patterns use `type User = Xxx;` and `Self::User` as associated types. `auth_session.user` is field access. `task::spawn_blocking` is tokio's task module.
+- Action : Ajouté dans TECHNICAL_TERMS de kb_utils.py : `"type user"`, `"self::user"`, `".user"`, `"task::"`.
+- Résultat : PASS (purge + re-run)
+
+## [Rust C] shuttle-hq/shuttle (Rust C)
+
+Aucune violation — PASS au premier essai (15 patterns).
+
+## [C++ A] crowcpp/Crow (C++ A)
+
+### Fix 1 — `item/items`, `message`, `user`, `tag/tags` in C++ patterns
+- Violation : 18 violations across 11 patterns — `item`/`items` (JSON building variables), `message` (JSON key), `user` (session variable), `tag`/`tags` (query params)
+- Cause : C++ patterns used `item`/`items` as loop variables for JSON array construction, `result["message"]` as JSON response key, `user` as session variable name, `tag`/`tags` as query param names.
+- Action :
+  - Renommé `item`→`element`, `items`→`elements` dans json_write_wvalue, json_read_rvalue, mustache_template, compression_setup
+  - Renommé `result["message"]`→`result["status_text"]` dans 7 patterns (replace_all)
+  - Renommé `user`→`account` dans session_middleware
+  - Renommé `tag`/`tags`→`label`/`labels` dans query_params_parsing
+- Résultat : PASS (purge + re-run)
+
+## [C++ B] drogonframework/drogon (C++ B)
+
+### Fix 1 — `post`, `task`, `message`, `item` in Drogon patterns
+- Violation : 11 violations — `post` (Drogon HTTP method macro and log string), `task` (log messages), `message` (WebSocket param and JSON key), `item` (JSON building variable)
+- Cause : Drogon macros `ADD_METHOD_TO(..., Post)` and `PATH_ADD(..., Post)` use `Post` as HTTP method. Log string "Post-routing:" contains `post`. `handleNewMessage` param `message`. `task` in log strings. `item` in JSON building.
+- Action :
+  - Ajouté TECHNICAL_TERMS : `"task<"` (Drogon coroutine), `", post)"`, `", post,"` (Drogon macros)
+  - Renommé `item`→`element` dans coroutine_handler, database_client_get
+  - Renommé `message`→`payload` dans websocket_controller, `message`→`detail` dans json_response_creation
+  - Renommé "Post-routing"→"After-routing", "Periodic task"→"Periodic job", "Startup task"→"Startup job"
+- Résultat : PASS (purge + re-run)
+
+## [C++ C] uNetworking/uWebSockets (C++ C)
+
+### Fix 1 — `query_kb()` parameter name bug
+- Violation : `TypeError: query_kb() got an unexpected keyword argument 'vector'`
+- Cause : Script used `vector=vec` instead of `query_vector=vec` in the audit query call.
+- Action : Corrigé `vector=` → `query_vector=` dans `run_audit_queries()`.
+- Résultat : PASS (purge + re-run, 0 Charte violations)
+
+## RÉSUMÉ FINAL — MATRICE 18 REPOS
+
+```
+Total patterns: 488
+
+  ThreeDotsLabs/wild-workouts-go-ddd-example: 23
+  bxcodec/go-clean-arch: 17
+  crowcpp/Crow: 22
+  drogonframework/drogon: 20
+  eddycjy/go-gin-example: 25
+  fastapi-users/fastapi-users: 45
+  fastapi/full-stack-fastapi-template: 60
+  gothinkster/node-express-realworld-example-app: 23
+  hagopj13/node-express-boilerplate: 28
+  igorbenav/fastcrud: 35
+  madhums/node-express-mongoose-demo: 31
+  maxcountryman/axum-login: 16
+  nestjs/nest: 31
+  sahat/hackathon-starter: 29
+  shuttle-hq/shuttle: 15
+  tokio-rs/axum: 23
+  uNetworking/uWebSockets: 14
+  w3tecch/express-typescript-boilerplate: 31
+```
+
+Tous les 18 repos : PASS. Date : 2026-03-30.

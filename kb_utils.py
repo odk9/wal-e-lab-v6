@@ -107,6 +107,33 @@ TECHNICAL_TERMS: set[str] = {
     "syn::item",
     # "model" → derive(Model)
     "derive(",
+    # "post" → routing::post (axum handler), .post( (method chaining), Method::POST
+    "routing::post",
+    ".post(",          # axum Router method chaining
+    "post(",           # axum standalone handler function: post(create_xxx)
+    "post,",           # Rust multi-line use: routing::{get, post, put}
+    "post}",           # Rust multi-line use: routing::{post}
+    "method::post",    # hyper Method::POST constant
+    'method="post"',   # HTML form method attribute
+    # "user" → Rust trait associated type, auth extractors
+    "type user",       # associated type: type User = Xxx
+    "self::user",      # Self::User (trait associated type)
+    ".user",           # auth_session.user (field access)
+    # "task" → tokio::task (spawn_blocking, etc.)
+    "task::",          # tokio task::spawn_blocking
+    # "message" → axum ws Message type
+    "ws::message",
+    # "task" → Drogon coroutine return type Task<>
+    "task<",           # drogon::Task<HttpResponsePtr>
+    # --- C++ ---
+    # "post" → HTTP POST in Crow/Drogon/uWS macros
+    '"post"_method',   # Crow HTTP method literal
+    ", post)",         # Drogon PATH_ADD/ADD_METHOD_TO: Get, Post)
+    ", post,",         # Drogon multi-method: Get, Post, Put
+    # "message" → WebSocket message handler parameter names
+    "on_message",
+    "onmessage",
+    "handlenewmessage",
 }
 
 # Noms d'entités métier interdits dans le code normalisé
