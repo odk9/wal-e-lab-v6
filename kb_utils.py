@@ -83,9 +83,13 @@ TECHNICAL_TERMS: set[str] = {
     ".on(", ".emit(", ".once(",
     # "order" → z-order, tab-order (CSS/HTML)
     "z-order", "tab-order", "taborder",
-    # --- TypeScript ---
+    # --- TypeScript / NestJS ---
     # "type" → TypeScript type keyword
     "type ", "interface ",
+    # "post" → @Post() decorator (routing-controllers / NestJS)
+    "@post(",
+    # "event" / "events" → EventDispatcher, @EventSubscriber (event-dispatch lib)
+    "eventdispatcher", "eventsubscriber", "@on(",
     # --- Go ---
     # "model" → gorm.Model
     "gorm.model",
