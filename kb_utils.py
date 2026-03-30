@@ -28,6 +28,7 @@ TECHNICAL_TERMS: set[str] = {
     ".items()",   # dict method
     # "post" → HTTP method .post(, @router.post, postfix, repost
     ".post(",     # HTTP POST method (TestClient, APIRouter, supertest)
+    "method: 'post'",  # fetch options (lowercased)
     "@router.post", "client.post", "agent.post",
     "postfix", "repost", "reposts",
     # "tag" / "tags" → _tag (champ KB interne), FastAPI tags= parameter
@@ -51,6 +52,9 @@ TECHNICAL_TERMS: set[str] = {
     "super(message)",   # Error constructor call
     "message =",        # JS variable assignment (error handling)
     "message)",         # function parameter closing
+    "your message",     # UI string in forms (not an entity name)
+    "body.message",     # form field access (contact form)
+    "sending message",  # UI error string (not an entity name)
     # "type" → feature_type, file_type, content_type
     "feature_type", "file_type", "content_type", "type_hint",
     # "model" → model_config, model_dump, model_validate
@@ -58,6 +62,8 @@ TECHNICAL_TERMS: set[str] = {
     # "event" → event_handler, event_loop, addEventListener, EventEmitter
     "event_handler", "event_loop", "addeventlistener", "eventemitter",
     "event_emitter",
+    "event: {",       # reCAPTCHA Enterprise / webhook event payload object
+    "event:",         # generic event object key in API payloads
     # "note" → notebook, annotation
     "notebook", "annotation",
     # --- JavaScript / Express ---
@@ -203,6 +209,7 @@ def check_charte_violations(
             "= async function",   # async property/method assignment
             ".pre(",              # Mongoose pre hook
             ".post(",             # Mongoose post hook (hook, pas HTTP)
+            ".get(function",      # Mongoose virtual getter
             "exports = function", # module.exports = function(app)
         )
         non_exempt_fn_count = 0
