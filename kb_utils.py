@@ -44,6 +44,13 @@ TECHNICAL_TERMS: set[str] = {
     "errormessage",     # generic error property
     ".message",         # JS Error.message property / Mongoose validation
     "err.message",      # JS error.message standard property
+    "{ message",        # destructuring { message } from error
+    ", message",        # message as parameter in function calls
+    "message,",         # message in object/response construction
+    "message }",        # message in destructuring end
+    "super(message)",   # Error constructor call
+    "message =",        # JS variable assignment (error handling)
+    "message)",         # function parameter closing
     # "type" → feature_type, file_type, content_type
     "feature_type", "file_type", "content_type", "type_hint",
     # "model" → model_config, model_dump, model_validate
