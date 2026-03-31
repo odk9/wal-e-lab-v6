@@ -1,7 +1,7 @@
 # WAL-E LAB V6 — CLAUDE.md
 
 > Mémoire persistante du projet. Lu automatiquement à chaque session Claude Code.
-> Dernière mise à jour : 29 mars 2026
+> Dernière mise à jour : 31 mars 2026
 
 ---
 
@@ -39,6 +39,12 @@ evaluator (Python) — ruff + pyright + pytest + schemathesis
 should_continue → fixer (loop) ou deployer
  ↓
 deployer (Python) — git push GitHub
+        ↓
+memory.log_project_summary() — bilan final en mémoire
+
+Note : memory.recall_for_strategy() est appelé entre analyst et generator.
+       memory.recall_for_fixer() est appelé avant chaque tentative de fix.
+       memory.log_fix() est appelé après chaque cycle evaluator → fixer.
 ```
 
 **KB building pipeline (offline) :**
@@ -69,13 +75,19 @@ GitHub repos → kb_scanner → kb_extracteur (AST + LLM) → kb_normaliseur (Ch
 Wal-e Lab V6/
 ├── CLAUDE.md                  ← ce fichier (lu automatiquement)
 ├── embedder.py                ← wrapper fastembed : embed_document / embed_query / embed_documents_batch
-├── setup_collections.py       ← crée collections Qdrant (patterns + architectures)
+├── kb_utils.py                ← utilitaires KB : check_charte, build_payload, query_kb, query_wirings
+├── setup_collections.py       ← crée collections Qdrant (patterns + wirings + architectures)
+├── setup_memory.py            ← crée collection Qdrant `memory` (4e collection)
+├── memory.py                  ← mémoire persistante : log_fix, log_project_summary, recall_for_*
+├── extract_wirings.py         ← extracteur AST de wirings (flux inter-modules)
+├── validate_scripts.py        ← pré-validation Charte sur les scripts d'ingestion
 ├── kb_qdrant/                 ← données Qdrant (gitignored)
-├── .venv/                     ← Python 3.10, qdrant-client 1.17.1, fastembed
+├── .venv/                     ← Python 3.13, qdrant-client 1.17.1, fastembed
 ├── Document/
 │   ├── WAL-E_V6_KB_ARCHITECTURE.md   ← architecture complète V6
 │   └── WAL-E_CHARTE_PYTHON_FASTAPI.md ← Charte de normalisation (référence complète)
-└── ingest_*.py                ← scripts d'ingestion par repo (à créer)
+├── ingest_*.py                ← scripts d'ingestion patterns par repo (95 repos, 1489 patterns)
+└── ingest_wirings_*.py        ← scripts d'ingestion wirings par repo
 ```
 
 **Commandes utiles :**
@@ -84,18 +96,88 @@ Wal-e Lab V6/
 .venv/bin/python3 -c "
 import qdrant_client
 c = qdrant_client.QdrantClient(path='./kb_qdrant')
-for col in ['patterns', 'architectures']:
+for col in ['patterns', 'wirings', 'architectures', 'memory']:
     print(col, c.get_collection(col).points_count)
 "
 
-# Recréer les collections (DESTRUCTIF)
+# Créer la collection memory (safe — skip si existe)
+.venv/bin/python3 setup_memory.py
+
+# Recréer les collections KB (DESTRUCTIF — ne touche pas memory)
 .venv/bin/python3 setup_collections.py
 
-# Lancer un script d'ingestion
+# Lancer un script d'ingestion patterns
 .venv/bin/python3 ingest_fastcrud.py
+
+# Lancer un script d'ingestion wirings
+.venv/bin/python3 ingest_wirings_fastcrud.py
 
 # Git
 git add <fichiers> && git commit -m "feat: ..." && git push
+```
+
+---
+
+## Mémoire persistante (collection `memory`)
+
+Wal-e Lab retient ce qu'il apprend au fil des projets. La mémoire est une 4e collection Qdrant avec 7 types de souvenirs :
+
+| Type | Quand écrire | Contenu |
+|---|---|---|
+| `fix_log` | Après chaque cycle evaluator→fixer | Erreur rencontrée, fix appliqué, score avant/après |
+| `project_summary` | En fin de pipeline (après deployer) | Bilan complet : scores, itérations, patterns, leçons |
+| `lesson` | Extrait des summaries ou manuellement | Leçon généralisable cross-projet |
+| `decision` | Quand un choix non trivial est fait | Décision + rationale + alternatives considérées |
+| `run_log` | Après chaque nœud du pipeline | Input/output résumé, durée, statut, erreur éventuelle |
+| `conversation` | En fin de session chat Wal-e ↔ utilisateur | Résumé, topics, décisions, action items |
+| `preference` | Quand l'utilisateur exprime une préférence | Clé/valeur persistante (ex: linter=ruff, language=français) |
+
+**Moments de lecture :**
+
+| Moment | Fonction | Utilité |
+|---|---|---|
+| Début pipeline (après analyst) | `recall_for_strategy()` | Éviter erreurs connues, adapter stratégie |
+| Avant chaque fix | `recall_for_fixer()` | Appliquer fix connu, éviter fix échoués |
+| Début session chat | `recall_conversations()` | Charger le contexte des sessions passées |
+| Début pipeline ou session | `get_preferences()` | Charger le profil utilisateur |
+| Pendant un choix | `recall_decisions()` | Retrouver des décisions similaires passées |
+
+**API (memory.py) :**
+```python
+from memory import (
+    # Écriture
+    log_fix,                # écrire un fix_log
+    log_project_summary,    # écrire un bilan projet
+    log_lesson,             # écrire une leçon
+    log_decision,           # écrire une décision structurante
+    log_run,                # écrire un log de nœud pipeline
+    log_conversation,       # écrire un résumé de session chat
+    set_preference,         # écrire/mettre à jour une préférence
+    # Lecture
+    recall_for_strategy,    # lire avant génération
+    recall_for_fixer,       # lire avant correction
+    recall_conversations,   # lire sessions passées
+    get_preferences,        # charger le profil utilisateur
+    recall_decisions,       # retrouver décisions similaires
+    # Utilitaires
+    count_memories,         # stats par type
+    memory_stats,           # stats globales (7 types)
+    get_project_history,    # historique complet d'un projet
+    get_session_history,    # historique d'une session chat
+    delete_project_memory,  # cleanup
+)
+```
+
+**Commandes :**
+```bash
+# Créer la collection memory
+.venv/bin/python3 setup_memory.py
+
+# Vérifier les stats mémoire
+.venv/bin/python3 -c "
+from memory import memory_stats
+print(memory_stats())
+"
 ```
 
 ---
@@ -122,6 +204,45 @@ Champ obligatoire sur chaque point inséré :
 ```
 
 Champs indexés (filtrables) : `feature_type`, `framework`, `language`, `file_role`
+
+---
+
+## Payload Qdrant — Collection `wirings`
+
+Capture le câblage inter-modules : comment les patterns se connectent entre eux.
+3 collections KB = 3 niveaux de granularité :
+- `architectures` → Niveau 0 : quelle famille, quels services (macro)
+- `wirings` → Niveau 1-2 : comment les fichiers s'importent et se connectent (méso)
+- `patterns` → Niveau 3 : le code de chaque fichier (micro)
+
+Champ obligatoire sur chaque point :
+
+```python
+{
+    "wiring_type": str,        # "import_graph" | "dependency_chain" | "flow_pattern"
+    "description": str,        # description sémantique du wiring (utilisée pour l'embedding)
+    "modules": list[str],      # fichiers impliqués : ["main.py", "routes.py", "crud.py"]
+    "connections": list[str],  # les liens : ["main.py → routes.py (include_router)"]
+    "code_example": str,       # code concret montrant le wiring (normalisé Charte)
+    "pattern_scope": str,      # "crud_simple" | "crud_auth" | "websocket_chat" | "jwt_auth_flow"
+    "language": str,           # "python" | "typescript" | "go" | "rust"
+    "framework": str,          # "fastapi" | "express" | "gin" | "axum"
+    "stack": str,              # "fastapi+sqlalchemy+pydantic_v2" | ...
+    "source_repo": str,        # URL GitHub
+    "charte_version": str,     # "1.0"
+    "created_at": int,         # timestamp Unix
+    "_tag": str,               # "wirings/owner/repo" — pour cleanup/update
+}
+```
+
+Champs indexés (filtrables) : `wiring_type`, `language`, `framework`, `pattern_scope`
+
+**Types de wirings :**
+- `import_graph` — graphe d'imports entre modules locaux (extractible 100% par AST)
+- `dependency_chain` — injection de dépendances, middleware, lifespan, prefix split
+- `flow_pattern` — séquence d'opérations pour une feature : request → validation → route → crud → model → response
+
+**Extraction :** `extract_wirings.py` utilise l'AST Python pour extraire automatiquement les import graphs, Depends() chains, et routes. Les flow patterns complexes et conventions d'assemblage sont ajoutés manuellement.
 
 **RÈGLE CRITIQUE — Toujours filtrer par `language` lors des queries KB.**
 Sans filtre, une query JS peut retourner un pattern Python (similarité sémantique
