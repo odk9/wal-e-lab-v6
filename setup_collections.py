@@ -54,6 +54,43 @@ def create_patterns_collection(client: QdrantClient) -> None:
     print("     Index   : feature_type, framework, language, file_role")
 
 
+def create_wirings_collection(client: QdrantClient) -> None:
+    """
+    Collection `wirings` — flux et câblage entre modules.
+
+    Un point = un wiring (import graph, dependency chain, ou flow pattern).
+    Capture COMMENT les patterns se connectent entre eux dans un projet réel.
+
+    Types de wirings :
+      - import_graph   : qui importe quoi, dans quel ordre
+      - dependency_chain: injection de dépendances, middleware, lifecycle
+      - flow_pattern   : séquence d'opérations pour une feature complète
+
+    Filtrage par wiring_type + language + framework + pattern_scope.
+    """
+    client.create_collection(
+        collection_name="wirings",
+        vectors_config=VectorParams(
+            size=VECTOR_SIZE,          # nomic-embed-text-v1.5-Q
+            distance=Distance.COSINE,
+        ),
+        hnsw_config=HnswConfigDiff(
+            m=16,
+            ef_construct=100,
+        ),
+    )
+
+    # Index sur les 4 champs de filtrage fréquents
+    for field in ("wiring_type", "language", "framework", "pattern_scope"):
+        client.create_payload_index("wirings", field, PayloadSchemaType.KEYWORD)
+
+    print("  ✅ Collection 'wirings' créée")
+    print("     Payload : wiring_type | description | modules | connections")
+    print("               code_example | pattern_scope | language | framework")
+    print("               stack | source_repo | charte_version | created_at | _tag")
+    print("     Index   : wiring_type, language, framework, pattern_scope")
+
+
 def create_architectures_collection(client: QdrantClient) -> None:
     """
     Collection `architectures` — familles applicatives de référence.
@@ -90,6 +127,12 @@ def main() -> None:
     else:
         create_patterns_collection(client)
 
+    # wirings
+    if "wirings" in existing:
+        print("  ⚠️  'wirings' existe déjà — skip")
+    else:
+        create_wirings_collection(client)
+
     # architectures
     if "architectures" in existing:
         print("  ⚠️  'architectures' existe déjà — skip")
@@ -98,7 +141,7 @@ def main() -> None:
 
     # Résumé
     print("\n--- Résumé ---")
-    for name in ("patterns", "architectures"):
+    for name in ("patterns", "wirings", "architectures"):
         info = client.get_collection(name)
         count = client.count(name).count
         size = info.config.params.vectors.size

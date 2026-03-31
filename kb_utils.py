@@ -12,128 +12,325 @@ from typing import Any
 # ---------------------------------------------------------------------------
 # Termes techniques qui CONTIENNENT des mots interdits mais ne sont PAS
 # des noms d'entités métier. On les neutralise avant la vérification.
+#
+# STRUCTURE : dict par langage. Seuls "_universal" + le langage du pattern
+# sont chargés lors de la vérification. Ça évite qu'une exemption Rust
+# masque un vrai nom d'entité dans un pattern Python.
+#
 # Ajouter ici au fur et à mesure des faux positifs rencontrés.
 # ---------------------------------------------------------------------------
-TECHNICAL_TERMS: set[str] = {
-    # "order" → sort_order, order_by, ordering, ordered, reorder, border
-    "sort_order", "sort_orders", "order_by", "order_by_", "ordering",
-    "ordered", "reorder", "reorders", "border", "borders",
-    # "user" → username, userid, user_id, superuser, current_user, smtp auth
-    "username", "usernames", "user_id", "user_ids", "userid",
-    "superuser", "superusers", "current_user",
-    '["user"]', '"user"',  # SMTP protocol key
-    "smtp_user",
-    # "item" → item_id, items_per_page, lineitem, dict .items()
-    "item_id", "item_ids", "items_per_page", "lineitem", "lineitems",
-    ".items()",   # dict method
-    # "post" → HTTP method .post(, @router.post, postfix, repost
-    ".post(",     # HTTP POST method (TestClient, APIRouter, supertest)
-    "method: 'post'",  # fetch options (lowercased)
-    "@router.post", "client.post", "agent.post",
-    "postfix", "repost", "reposts",
-    '"post"',     # HTTP method string in CORS/method lists
-    '"post",',    # HTTP method in array
-    # "tag" / "tags" → _tag (champ KB interne), FastAPI tags= parameter
-    "_tag",
-    'tags=',      # FastAPI router tags parameter
-    'tags=[',
-    # "message" → emails.Message, XxxMessage, Express error response, flash message
-    "emails.message",   # email lib class (lowercased)
-    "xxxmessage",       # normalized schema name (lowercased)
-    "detail=",          # generic response pattern
-    "{ message:",       # Express/Passport error response object
-    "message:",         # JS object key in error responses
-    "failuremessage",   # Passport option
-    "errormessage",     # generic error property
-    ".message",         # JS Error.message property / Mongoose validation
-    "err.message",      # JS error.message standard property
-    "{ message",        # destructuring { message } from error
-    ", message",        # message as parameter in function calls
-    "message,",         # message in object/response construction
-    "message }",        # message in destructuring end
-    "super(message)",   # Error constructor call
-    "message =",        # JS variable assignment (error handling)
-    "message)",         # function parameter closing
-    "your message",     # UI string in forms (not an entity name)
-    "body.message",     # form field access (contact form)
-    "sending message",  # UI error string (not an entity name)
-    # "type" → feature_type, file_type, content_type
-    "feature_type", "file_type", "content_type", "type_hint",
-    # "model" → model_config, model_dump, model_validate
-    "model_config", "model_dump", "model_validate", "model_fields",
-    # "event" → event_handler, event_loop, addEventListener, EventEmitter
-    "event_handler", "event_loop", "addeventlistener", "eventemitter",
-    "event_emitter",
-    "event: {",       # reCAPTCHA Enterprise / webhook event payload object
-    "event:",         # generic event object key in API payloads
-    # "note" → notebook, annotation
-    "notebook", "annotation",
-    # --- JavaScript / Express ---
-    # "user" → req.user (Express/Passport), userAgent, OAuth scopes
-    "req.user", "useragent", "user_agent",
-    "user:email",       # GitHub OAuth scope
-    "'user:email'",     # GitHub OAuth scope (quoted)
-    # "post" → app.post, router.post (Express HTTP methods)
-    "app.post(", "router.post(", "app.post(",
-    # "item" → menuItem, listItem (UI components)
-    "menuitem", "listitem",
-    # "model" → mongoose.model, Model.find (Mongoose)
-    "mongoose.model", ".model(",
-    # "message" → error message, flash message (Express)
-    "flash(", "req.flash",
-    # "event" → on('event', ...) (Node EventEmitter pattern)
-    ".on(", ".emit(", ".once(",
-    # "order" → z-order, tab-order (CSS/HTML)
-    "z-order", "tab-order", "taborder",
-    # --- TypeScript / NestJS ---
-    # "type" → TypeScript type keyword
-    "type ", "interface ",
-    # "post" → @Post() decorator (routing-controllers / NestJS)
-    "@post(",
-    # "event" / "events" → EventDispatcher, @EventSubscriber (event-dispatch lib)
-    "eventdispatcher", "eventsubscriber", "@on(",
-    # --- Go ---
-    # "model" → gorm.Model
-    "gorm.model",
-    # "order" → Order("id desc") (GORM), ORDER BY (SQL)
-    '.order(',
-    "order by",
-    # "todo" → context.TODO() (Go stdlib)
-    "context.todo(",
-    # "item" → error message "your requested Item" (Go clean-arch)
-    "requested item",
-    # --- Rust ---
-    # "item" → syn::Item (Rust AST)
-    "syn::item",
-    # "model" → derive(Model)
-    "derive(",
-    # "post" → routing::post (axum handler), .post( (method chaining), Method::POST
-    "routing::post",
-    ".post(",          # axum Router method chaining
-    "post(",           # axum standalone handler function: post(create_xxx)
-    "post,",           # Rust multi-line use: routing::{get, post, put}
-    "post}",           # Rust multi-line use: routing::{post}
-    "method::post",    # hyper Method::POST constant
-    'method="post"',   # HTML form method attribute
-    # "user" → Rust trait associated type, auth extractors
-    "type user",       # associated type: type User = Xxx
-    "self::user",      # Self::User (trait associated type)
-    ".user",           # auth_session.user (field access)
-    # "task" → tokio::task (spawn_blocking, etc.)
-    "task::",          # tokio task::spawn_blocking
-    # "message" → axum ws Message type
-    "ws::message",
-    # "task" → Drogon coroutine return type Task<>
-    "task<",           # drogon::Task<HttpResponsePtr>
-    # --- C++ ---
-    # "post" → HTTP POST in Crow/Drogon/uWS macros
-    '"post"_method',   # Crow HTTP method literal
-    ", post)",         # Drogon PATH_ADD/ADD_METHOD_TO: Get, Post)
-    ", post,",         # Drogon multi-method: Get, Post, Put
-    # "message" → WebSocket message handler parameter names
-    "on_message",
-    "onmessage",
-    "handlenewmessage",
+TECHNICAL_TERMS: dict[str, set[str]] = {
+    # ── Termes partagés par TOUS les langages ─────────────────────────────
+    "_universal": {
+        # "order" → sort_order, order_by, ordering, ordered, reorder, border
+        "sort_order", "sort_orders", "order_by", "order_by_", "ordering",
+        "ordered", "reorder", "reorders", "border", "borders",
+        "order by",            # clause SQL — universel
+        # "user" → username, userid, user_id, superuser, current_user
+        "username", "usernames", "user_id", "user_ids", "userid",
+        "superuser", "superusers", "current_user",
+        # "item" → item_id, items_per_page, lineitem
+        "item_id", "item_ids", "items_per_page", "lineitem", "lineitems",
+        # "post" → postfix, repost (mots anglais, pas HTTP)
+        "postfix", "repost", "reposts",
+        # "post" → HTTP method strings (universel web)
+        '"post"',              # HTTP method string in CORS/method lists
+        '"post",',             # HTTP method in array
+        # "tag" / "tags" → _tag (champ KB interne)
+        "_tag",
+        # "message" → error messages (universel programmation)
+        "errormessage",        # generic error property
+        "detail=",             # generic response pattern
+        # "type" → feature_type, file_type, content_type
+        "feature_type", "file_type", "content_type", "type_hint",
+        # "model" → model_config, model_dump, model_validate
+        "model_config", "model_dump", "model_validate", "model_fields",
+        # "event" → event_handler, event_loop, add_event (span/otel)
+        "event_handler", "event_loop", "add_event",
+        # "note" → notebook, annotation
+        "notebook", "annotation",
+        # "event" → log event, event_dict (structlog/logging core concept)
+        "event_dict", "event_data", "log_event", "event =",
+        # "message" → log message (core logging concept)
+        "log_message",
+    },
+
+    # ── Python / FastAPI ──────────────────────────────────────────────────
+    "python": {
+        # "post" → HTTP method calls (TestClient, APIRouter)
+        ".post(", "@router.post", "client.post", "agent.post",
+        # "item" → dict .items()
+        ".items()",
+        # "tag" → FastAPI tags= parameter
+        'tags=', 'tags=[',
+        # "message" → emails.Message, XxxMessage, email headers, smtp
+        "emails.message", "xxxmessage",
+        "message-id", "msg_id",  # email header keys
+        'get("message', 'get("msg', 'headers.get',  # email header access
+        # "user" → SMTP auth
+        '["user"]', '"user"', "smtp_user",
+        # "task" → asyncio task types
+        "asyncio.task", "asyncio.create_task",
+        # "task" → Celery framework keywords and config keys (technical)
+        "@shared_task", "@app.task", "task_serializer", "task_success",
+        "task_failure", "task_retry", "task_prerun", "task_postrun",
+        "task_received", "task_rejected", "task_revoked", "task_unknown",
+        "task_time_limit", "task_soft_time_limit", "task_track_started",
+        "task_routes", "task_default", "max_retries", "@current_app.task",
+        "current_task", "get_task_logger", "task_id", "task.request",
+        'task": "xxx', '"task":', 'task,', 'task)', 'task[',
+        'tasks[', 'tasks"', '= chain(', '= group(', '= chord(',
+        ".apply_async(", "update_state(", "task_queue",
+        # Function definitions (not business entities)
+        "long_running_job(", "process_job(", "safe_operation(",
+        "critical_job(", "custom_throttled_job(", "bulk_process_job(",
+        "rate_limited_job(", "housekeeping_job(",
+        # "message" → logging/transport context (not entity)
+        "being_dispatched", "about_to_be_sent", "being_sent",
+        "published successfully", "being_retried", "being_processed",
+        "logger.debug(", "logger.info(", "logger.error(",
+        'worker_log_format=', 'worker_task_log_format=',
+        '%(message)s', '%(levelname)s', '%(processName)s',
+        # "task" → Celery execution context (not entity)
+        "task execution", "task publish", "task publish", "task timeout",
+        "task failed", "task succeeded", "task_id", "task_prerun",
+        "task_postrun", "acks_late", "track_started", "bind=true",
+        "# task", "# Job", "# Celery", "# Execution",
+        "task retrying", "task receives", "task unknown",
+        "task_received", "soft_time_limit", "time_limit",
+        "bind=True", "bind = true", '"task":', "task (",
+        # "event" → structlog event_dict, logging event (technical)
+        "event_dict[", "event_dict,", "event_dict)", "event_dict =",
+        "event[", "event,", "event)", "event =", "event.",
+        "events =", "events[", "events)", "events,",
+        # "message" → chainlit cl.Message, chatbot message (API class name)
+        "cl.message", "cl.askusermessage", "cl.askactionmessage",
+        "@cl.on_message", "@cl.on_action", "@cl.on_chat_start",
+        "message(content", "message(author", ".send()", "msg =",
+        "msg.", "msg)", "message =", "message.", "message)",
+        "message,", "messages[", "messages)", "xxxmessagewith",
+        "message object", "message object ___",  # docstring pattern
+        ": cl.message)", "cl.message) -> none:",
+        '"message:',  # dict string value
+        '"and message:', '" and message:',
+        # Chainlit message patterns in docstrings and function context
+        "handle incoming user", "containing user input", "send response back to user",
+        "send message with", "process message with", "handle message", "on_message",
+        "handle incoming user message",  # docstring exact
+        "process message using",  # docstring exact
+        "process user query",  # docstring exact
+        "process message using langchain",
+        # "user" → chainlit cl.User, cl.user_session (API)
+        "cl.user", "cl.user_session", "user_session", "user_id",
+        '"role": "user"',  # dict string value
+        '"user"',  # any quoted user string
+        # Chainlit user/account context patterns
+        "process_account_", "process_user_", "process_user_query",
+        "process_account_choice", "get_account_", "get_user_",
+        "xxxuserquery", "xxxusertask",
+        "incoming user message", "user input", "current user",
+        "current_account", "xxxuser", "xxxaccount",
+        "handle user action", "ask user", "incoming user",
+        "update session on message", "xxxauthuser", "xxxauthacc",
+        "the reply parameter", "send message with",
+        "ask user for", "handle user action",
+        "authenticate user", "authenticate account", "custom authentication",
+        "setup and manage user", "handle user message", "handle user action",
+        "displayed to user", "called once when user", "return user object",
+        "return account", "from chainlit.authentication import",
+        "to user for better", "that user can", "return user",
+        "import user", "def custom_authentication",
+        "xxxusername", "-> user:", ") -> user:",
+        "from chainlit.authentication import user",  # class name
+        "xxxaccount = user(",  # class instantiation
+        "return user ",  # return statement
+    },
+
+    # ── JavaScript / Express ──────────────────────────────────────────────
+    "javascript": {
+        # "post" → HTTP method calls (Express, supertest)
+        ".post(", "app.post(", "router.post(",
+        "method: 'post'",      # fetch options
+        # "user" → req.user (Express/Passport), userAgent, OAuth scopes
+        "req.user", "useragent", "user_agent",
+        "user:email", "'user:email'",
+        # "item" → menuItem, listItem (UI components)
+        "menuitem", "listitem",
+        # "model" → mongoose.model, Model.find
+        "mongoose.model", ".model(",
+        # "message" → error message, flash message (Express)
+        ".message", "err.message",
+        "{ message:", "message:", "{ message", ", message",
+        "message,", "message }", "super(message)",
+        "message =", "message)",
+        "failuremessage",      # Passport option
+        "flash(", "req.flash",
+        "your message", "body.message", "sending message",
+        # "event" → EventEmitter (Node)
+        "addeventlistener", "eventemitter", "event_emitter",
+        ".on(", ".emit(", ".once(",
+        "event: {", "event:",
+        # "order" → z-order, tab-order (CSS/HTML)
+        "z-order", "tab-order", "taborder",
+        # "item" → dict-like .items() pas pertinent en JS mais garde compat
+        ".items()",
+        # "tag" → tags= (Express/Passport)
+        'tags=', 'tags=[',
+        # "event" → logging event (pino/winston)
+        "event,", "event)", "event =", "event.",
+        "events[", "events)",
+        # "message" → pino log message field
+        "message:", "message,", "message)",
+    },
+
+    # ── TypeScript / NestJS ───────────────────────────────────────────────
+    "typescript": {
+        # Hérite des mêmes bases que JS pour Express
+        ".post(", "app.post(", "router.post(",
+        "method: 'post'",
+        # "post" → @Post() decorator (routing-controllers / NestJS)
+        "@post(",
+        # "user" → req.user, userAgent, OAuth
+        "req.user", "useragent", "user_agent",
+        "user:email", "'user:email'",
+        # "type" → TypeScript keywords
+        "type ", "interface ",
+        # "item" → menuItem, listItem
+        "menuitem", "listitem",
+        # "model" → .model(
+        ".model(",
+        # "message" → error messages (même set que JS)
+        ".message", "err.message",
+        "{ message:", "message:", "{ message", ", message",
+        "message,", "message }", "super(message)",
+        "message =", "message)",
+        "failuremessage", "errormessage",
+        "flash(", "req.flash",
+        # "event" / "events" → EventDispatcher, EventSubscriber, EventEmitter
+        "addeventlistener", "eventemitter", "event_emitter",
+        "eventdispatcher", "eventsubscriber",
+        ".on(", ".emit(", ".once(", "@on(",
+        "event: {", "event:",
+        # "order" → z-order, tab-order
+        "z-order", "tab-order", "taborder",
+        # "tag" → tags=
+        'tags=', 'tags=[',
+    },
+
+    # ── Go / Gin ──────────────────────────────────────────────────────────
+    "go": {
+        # "model" → gorm.Model
+        "gorm.model",
+        # "order" → .Order("id desc") (GORM)
+        '.order(',
+        # "post" → HTTP method strings (déjà dans _universal: "post", "post",)
+        ".post(",              # net/http method chaining
+        # "todo" → context.TODO() (Go stdlib)
+        "context.todo(",
+        # "item" → error message "your requested Item"
+        "requested item",
+        # "message" → error message patterns
+        ".message", "err.message", "message:", "message,",
+        # "tag" / "tags" → audio metadata tags (taglib, normtag, tag readers in gonic)
+        "tags.reader", "tags.tags", "tags =", "tagreader", "normtag", ".tags",
+        "package tags", "type reader", "type metadata", "type properties",
+        # "user" → db.User (database model, authentication)
+        "db.user", "isuserauthenticated", ".user", "db.person",
+        # "task" → asynq.Task (asynq framework type for background job queue)
+        "asynq.task", "*asynq.task",
+        # "event" → zap event, log event (technical)
+        "event,", "event)", "event(",
+        # "message" → zap log message field (technical)
+        "message)", "message,",
+        # "user" → zap logger field example
+        "zap.string(", "zap.int(",
+    },
+
+    # ── Rust / Axum ───────────────────────────────────────────────────────
+    "rust": {
+        # "post" → routing::post (axum), method chaining, Method::POST
+        "routing::post",
+        "post(",               # axum standalone handler: post(create_xxx)
+        ".post(",              # axum Router method chaining
+        "post,",               # multi-line use: routing::{get, post, put}
+        "post}",               # multi-line use: routing::{post}
+        "method::post",        # hyper Method::POST constant
+        'method="post"',       # HTML form method attribute
+        # "item" → syn::Item (Rust AST), IntoIterator trait
+        "syn::item",
+        "intoiterator",        # IntoIterator trait
+        "intoiterator<",
+        # "event" → Event in webhook/async patterns (Stripe, Tokio, Axum)
+        "event(",              # Event constructor in Stripe, tokio
+        "event<",              # Event<T> generic type
+        "event:",              # field binding: event: SomeEvent
+        # "model" → derive(Model)
+        "derive(",
+        # "user" → Rust trait associated type, auth extractors
+        "type user",           # associated type: type User = Xxx
+        "self::user",          # Self::User (trait associated type)
+        ".user",               # auth_session.user (field access)
+        # "task" → tokio::task (spawn_blocking, etc.)
+        "task::",              # tokio task::spawn_blocking
+        # "message" → axum ws Message type, error handling, WebSocket
+        "ws::message",
+        "message::",           # ws::Message:: variants
+        "message::text",       # Message::Text(...)
+        "message::close",      # Message::Close(...)
+        ", message)",          # let (status, message) = match
+        "message) =",          # destructuring: let (..., message) =
+        '"error": message',    # JSON error response construction
+        # "event" → tracing_core::Event (tracing Layer trait)
+        "event<",              # Event<'_> generic type
+        "event>",              # closing of Event<'_>
+        "&event",              # &Event<'_> reference
+        "on_event",            # fn on_event() Layer trait method
+        ", event)",            # function parameter
+        "event::",             # Event:: variant access
+        "log_entry",           # renamed Event parameter
+    },
+
+    # ── C++ (Crow / Drogon / uWebSockets) ─────────────────────────────────
+    "cpp": {
+        # "post" → HTTP POST in Crow/Drogon/uWS macros and methods
+        '"post"_method',       # Crow HTTP method literal
+        ", post)",             # Drogon PATH_ADD/ADD_METHOD_TO: Get, Post)
+        ", post,",             # Drogon multi-method: Get, Post, Put
+        "app.post(",           # uWebSockets HTTP POST handler
+        "setup_post_routes",   # function name containing "post" for HTTP
+        # "task" → Drogon coroutine return type Task<>
+        "task<",               # drogon::Task<HttpResponsePtr>
+        # "message" → WebSocket message handler/parameter/lambda key
+        "on_message",
+        "onmessage",
+        "handlenewmessage",
+        ".message =",          # uWS handler: .message = [](auto *ws, ...message...)
+        "message,",            # message as lambda param followed by comma
+        "message)",            # message as lambda param closing
+        "string_view message", # std::string_view message (uWS param type)
+        "broadcasting message",# log string "Broadcasting message:"
+        # "user" → JSON config keys
+        '"user":',             # JSON config: "user": "xxx_user"
+        # "event" → spdlog log event (technical)
+        "event,", "event)", "event(",
+        # "message" → spdlog log message (technical)
+        "message)", "message,", "message(",
+    },
+
+    # ── PHP / Laravel ──────────────────────────────────────────────────────
+    "php": {
+        # "order" → orderBy() Eloquent method with string literal
+        "orderby(", "->orderby(", "->orderBy(", "orderBy('order'",
+        # "item" → morphTo polymorphic relation (Laravel), function name
+        "morphto(", ".morphto(", ".morphTo(", "function item()",
+        # "tag" / "note" → ActivityPub JSON-LD type strings
+        "'tag'", '"tag"', "'note'", '"note"',
+        "'type' =>", '"type" =>',  # JSON object type discriminator
+        # "message" → Laravel error messages
+        "message():", "->message(",
+        # "post" → HTTP routing (Laravel)
+        "route.post", "route('", "@post", "->post(",
+    },
 }
 
 # Noms d'entités métier interdits dans le code normalisé
@@ -167,6 +364,7 @@ def check_charte_violations(
 
     # ------------------------------------------------------------------
     # Filtrage des lignes d'import (varie selon le langage)
+    # Gère les imports multi-lignes (Rust use {...}, Go import (...), etc.)
     # ------------------------------------------------------------------
     import_prefixes = {
         "python": ("from ", "import "),
@@ -178,15 +376,30 @@ def check_charte_violations(
     }
     prefixes = import_prefixes.get(language, ("from ", "import "))
 
-    non_import_lines = [
-        line for line in code.split("\n")
-        if not line.strip().startswith(prefixes)
-    ]
+    # Détection des blocs d'import multi-lignes (Rust: use x::{...};, Go: import (...))
+    non_import_lines: list[str] = []
+    in_multiline_import = False
+    for line in code.split("\n"):
+        stripped = line.strip()
+        if stripped.startswith(prefixes):
+            # Début d'import — vérifier si c'est un bloc multi-lignes
+            if ("{" in stripped and "}" not in stripped) or (stripped == "import ("):
+                in_multiline_import = True
+            continue  # skip cette ligne (c'est un import)
+        if in_multiline_import:
+            # On est dans un bloc multi-lignes — skip jusqu'au fermant
+            if "}" in stripped or stripped == ")":
+                in_multiline_import = False
+            continue
+        non_import_lines.append(line)
+
     non_import_code = "\n".join(non_import_lines).lower()
 
     # Neutralise les termes techniques avant la vérification U-5
+    # Ne charge que _universal + le langage du pattern → pas de faux négatifs cross-langage
+    active_terms = TECHNICAL_TERMS.get("_universal", set()) | TECHNICAL_TERMS.get(language, set())
     sanitized = non_import_code
-    for term in TECHNICAL_TERMS:
+    for term in active_terms:
         sanitized = sanitized.replace(term.lower(), "___")
 
     # ------------------------------------------------------------------
@@ -338,6 +551,38 @@ def check_charte_violations(
     return violations
 
 
+def validate_before_insert(
+    normalized_code: str,
+    function_name: str,
+    language: str,
+    *,
+    strict: bool = True,
+) -> list[str]:
+    """
+    Valide un pattern AVANT insertion en KB.
+    Appelle check_charte_violations() et lève ValueError si strict=True
+    et qu'il y a des violations.
+
+    Usage dans les scripts d'ingestion :
+        violations = validate_before_insert(code, name, lang)
+        # Si strict=True (défaut), lève ValueError → le pattern n'est PAS inséré.
+        # Si strict=False, retourne les violations sans bloquer.
+
+    Returns:
+        Liste de violations (vide = OK).
+    Raises:
+        ValueError si strict=True et violations détectées.
+    """
+    violations = check_charte_violations(normalized_code, function_name, language)
+    if violations and strict:
+        raise ValueError(
+            f"Charte violations bloquantes pour '{function_name}' "
+            f"(language={language}):\n"
+            + "\n".join(f"  - {v}" for v in violations)
+        )
+    return violations
+
+
 def build_payload(
     normalized_code: str,
     function: str,
@@ -431,6 +676,105 @@ def query_kb(
 
     results = client.query_points(
         collection_name=collection,
+        query=query_vector,
+        query_filter=query_filter,
+        limit=limit,
+        with_payload=True,
+    )
+
+    return results.points
+
+
+def build_wiring_payload(
+    wiring_type: str,
+    description: str,
+    modules: list[str],
+    connections: list[str],
+    code_example: str,
+    pattern_scope: str,
+    language: str,
+    framework: str,
+    stack: str,
+    source_repo: str,
+    tag: str,
+    charte_version: str = "1.0",
+) -> dict[str, Any]:
+    """
+    Construit le payload Qdrant standardisé pour un wiring.
+    Garantit la présence de tous les champs obligatoires.
+    """
+    return {
+        "wiring_type": wiring_type,
+        "description": description,
+        "modules": modules,
+        "connections": connections,
+        "code_example": code_example,
+        "pattern_scope": pattern_scope,
+        "language": language,
+        "framework": framework,
+        "stack": stack,
+        "source_repo": source_repo,
+        "charte_version": charte_version,
+        "created_at": int(time.time()),
+        "_tag": tag,
+    }
+
+
+def query_wirings(
+    client: Any,
+    query_vector: list[float],
+    language: str | None = None,
+    framework: str | None = None,
+    wiring_type: str | None = None,
+    pattern_scope: str | None = None,
+    limit: int = 5,
+) -> list[Any]:
+    """
+    Query la collection wirings avec filtrage.
+
+    Même règle que query_kb : toujours filtrer par language.
+
+    Args:
+        client: QdrantClient instance
+        query_vector: vecteur de la query (via embed_query())
+        language: filtre obligatoire — "python", "javascript", etc.
+        framework: filtre optionnel — "fastapi", "express", etc.
+        wiring_type: filtre optionnel — "import_graph", "dependency_chain", "flow_pattern"
+        pattern_scope: filtre optionnel — "crud_simple", "crud_auth", etc.
+        limit: nombre de résultats max
+
+    Returns:
+        Liste de ScoredPoint
+    """
+    from qdrant_client.models import (
+        FieldCondition,
+        Filter,
+        MatchValue,
+    )
+
+    must_conditions: list[FieldCondition] = []
+
+    if language:
+        must_conditions.append(
+            FieldCondition(key="language", match=MatchValue(value=language))
+        )
+    if framework:
+        must_conditions.append(
+            FieldCondition(key="framework", match=MatchValue(value=framework))
+        )
+    if wiring_type:
+        must_conditions.append(
+            FieldCondition(key="wiring_type", match=MatchValue(value=wiring_type))
+        )
+    if pattern_scope:
+        must_conditions.append(
+            FieldCondition(key="pattern_scope", match=MatchValue(value=pattern_scope))
+        )
+
+    query_filter = Filter(must=must_conditions) if must_conditions else None
+
+    results = client.query_points(
+        collection_name="wirings",
         query=query_vector,
         query_filter=query_filter,
         limit=limit,
